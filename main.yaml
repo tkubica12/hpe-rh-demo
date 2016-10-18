@@ -1,0 +1,35 @@
+---
+  - name: Blade networking
+    hosts: localhost
+    gather_facts: no
+    connection: local
+    vars:
+      oneview_config_file: "oneview-config.json"
+      state: present
+    vars_files:
+      - config.yaml
+    roles:
+      - ov-networking
+
+  - name: Top-of-rack networking
+    hosts: switches
+    gather_facts: no
+    connection: local
+    vars:
+      state: present
+    vars_files:
+      - config.yaml
+    roles:
+      - tor-networking
+
+  - name: Servers
+    hosts: localhost
+    gather_facts: no
+    connection: local
+    vars:
+      oneview_config_file: "oneview-config.json"
+      state: present
+    vars_files:
+      - config.yaml
+    roles:
+      - server-profiles

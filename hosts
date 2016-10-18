@@ -1,0 +1,6 @@
+[all:vars]
+switch_username=hpe
+switch_password=hpe
+
+[switches]
+192.168.56.10

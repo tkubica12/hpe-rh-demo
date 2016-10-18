@@ -1,0 +1,12 @@
+- name: Ensure server profiles templates are presentt
+  include: profile-template.yaml
+  with_items: "{{ server_profiles }}"
+
+- name: Ensure server profiles are present
+  oneview_server_profile:
+    config: "{{ oneview_config_file }}"
+    state: "{{ state }}"
+    data:
+      server_template: "{{ item.profile }}"
+      name: "{{ item.name }}"
+  with_items: "{{ servers }}"

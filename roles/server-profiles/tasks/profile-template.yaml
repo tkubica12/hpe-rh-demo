@@ -1,0 +1,35 @@
+- name: Gather facts about a Enclosure Group by name
+  oneview_enclosure_group_facts:
+    config: "{{ oneview_config_file }}"
+    name: "{{ item.enclosure_group }}"
+
+- name: Gather facts about Ethernet networks
+  oneview_ethernet_network_facts:
+    config: "{{ oneview_config_file }}"
+    name: "{{ item }}"
+  with_items: "{{ item.ethernet_networks }}"
+  register: eth_facts
+
+- name: Prepare individual JSON objects for Ethernet networks
+  set_fact:
+    net: '{
+            "functionType" : "Ethernet",
+            "portId" : "Auto",
+            "networkUri" : "{{ item.ansible_facts.ethernet_networks[0].uri }}"
+          }'
+  with_items: "{{ eth_facts.results }}"
+  register: eth_map
+
+- name: Map Ethernet configurations to JSON array
+  set_fact:
+    eth_config: "{{ eth_map.results | map(attribute='ansible_facts.net') | list }}"
+
+- name: Ensure server profile template is present
+  oneview_server_profile_template:
+    config: "{{ oneview_config_file }}"
+    state: "{{ state }}"
+    data:
+      name: "{{ item.name }}"
+      serverHardwareTypeUri: "{{ item.hardware_type }}"
+      enclosureGroupUri: "{{ enclosure_groups[0].uri }}"
+      connections: "{{ eth_config }}"

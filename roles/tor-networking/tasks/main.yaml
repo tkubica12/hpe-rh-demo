@@ -1,0 +1,23 @@
+- name: Ensure that VLANs exist
+  comware_vlan:
+    state: "{{ state }}"
+    vlanid: "{{ item.id }}"
+    name: "{{ item.name }}"
+    username: "{{ switch_username }}"
+    password: "{{ switch_password }}"
+    hostname: "{{ inventory_hostname }}"
+  with_items: "{{ vlans }}"
+
+- name: Create permited VLANs string
+  set_fact:
+    permitted_vlans: "{{ vlans | map(attribute='id') | join(',') }}"
+
+- name: Ensure ports are configured
+  include: ports.yaml
+  with_items: "{{ connectivity_enclosures }}"
+
+- name: Save switch configuration
+  comware_save:
+      username: "{{ switch_username }}"
+      password: "{{ switch_password }}"
+      hostname: "{{ inventory_hostname }}"

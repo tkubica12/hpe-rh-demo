@@ -1,0 +1,29 @@
+- name: Ensure that Networks exist
+  oneview_ethernet_network:
+    config: "{{ oneview_config_file }}"
+    state: "{{ state }}"
+    data:
+      name: "{{ item.name }}"
+      vlanId: "{{ item.id }}"
+      smartLink: true
+      privateNetwork: false
+      purpose: General
+  with_items: "{{ vlans }}"
+  register: networks
+
+- name: Store network URIs in list
+  set_fact:
+    network_uris: "{{ networks.results | map(attribute='ansible_facts.ethernet_network.uri') | list }}"
+
+- name: Ensure networks are present on Logical interconnect group
+  oneview_logical_interconnect_group:
+    config: "{{ oneview_config_file }}"
+    state: present
+    data:
+      type: "logical-interconnect-groupV3"
+      name: "{{ logical_interconnect_group }}"
+      internalNetworkUris: "{{ network_uris }}"
+
+- name: Ensure UplinkSets are configured
+  include: uplinksets.yaml
+  with_items: "{{ connectivity_enclosures }}"

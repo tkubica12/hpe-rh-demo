@@ -1,0 +1,51 @@
+- name: Create map with facts about interconnects
+  oneview_interconnect_facts:
+    config: "{{ oneview_config_file }}"
+    name: "{{ item.module }}"
+  with_items: "{{ item.logical_interconnects }}"
+  register: interconnects_map
+
+- name: Build port configurations
+  set_fact:
+    port_config: '{
+      "desiredSpeed": "Auto",
+      "location": {
+          "locationEntries": [
+              {
+                  "type": "Port",
+                  "value": "{{ item[1] }}"
+              },
+              {{ item[0].ansible_facts.interconnects[0].interconnectLocation.locationEntries[0] }},
+              {{ item[0].ansible_facts.interconnects[0].interconnectLocation.locationEntries[1] }}
+          ]
+      }
+    }'
+  with_subelements:
+    - "{{ interconnects_map.results }}"
+    - "item.ports"
+  register: port_map
+
+- name: Map port configurations to JSON array
+  set_fact:
+    port_configs: "{{ port_map.results | map(attribute='ansible_facts.port_config') | list }}"
+
+- name: Get Logical Interconnect URI
+  set_fact:
+    l_interconnect: "{{ interconnects_map.results[0].ansible_facts.interconnects[0].logicalInterconnectUri }}"
+
+- name: Ensure that the Uplink Set with Networks is present
+  oneview_uplink_set:
+    config: "{{ oneview_config_file }}"
+    state: "{{ state }}"
+    data:
+      type: "uplink-setV3"
+      name: "Ansible-uplink{{ interconnects_map.results[0].ansible_facts.interconnects[0].name }}"
+      status: "OK"
+      logicalInterconnectUri: "{{ l_interconnect }}"
+      networkUris: "{{ network_uris }}"
+      fcNetworkUris: []
+      fcoeNetworkUris: []
+      portConfigInfos: "{{ port_configs }}"
+      connectionMode: "Auto"
+      networkType: "Ethernet"
+      manualLoginRedistributionState: "NotSupported"

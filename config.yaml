@@ -1,0 +1,67 @@
+vlans:
+  - id: 101
+    name: Prod-101
+  - id: 102
+    name: Prod-102
+  - id: 103
+    name: Dev-103
+
+logical_interconnect_group: FlexFabric
+connectivity_enclosures:
+  - logical_interconnects:
+    - module: Encl1, interconnect 1
+      ports:
+        - X2
+        - X4
+      switchports:
+        - GigabitEthernet 1/0/2
+        - GigabitEthernet 1/0/3
+      switch_link_aggregation_group: 1
+    - module: Encl1, interconnect 2
+      ports:
+        - X2
+        - X4
+      switchports:
+        - GigabitEthernet 1/0/4
+        - GigabitEthernet 1/0/5
+      switch_link_aggregation_group: 2
+  - logical_interconnects:
+    - module: Encl2, interconnect 1
+      ports:
+        - X2
+        - X4
+      switchports:
+        - GigabitEthernet 1/0/6
+        - GigabitEthernet 1/0/7
+      switch_link_aggregation_group: 3
+    - module: Encl2, interconnect 2
+      ports:
+        - X2
+        - X4
+      switchports:
+        - GigabitEthernet 1/0/8
+        - GigabitEthernet 1/0/9
+      # switch_link_aggregation_group: 4
+
+server_profiles:
+  - name: DB_servers
+    hardware_type: /rest/server-hardware-types/993EE3AD-44BB-42F5-86BB-DCCCB4BE5CE6
+    enclosure_group: ENCL-group
+    ethernet_networks:
+      - Prod-101
+      - Prod-102
+  - name: APP_servers
+    hardware_type: /rest/server-hardware-types/993EE3AD-44BB-42F5-86BB-DCCCB4BE5CE6
+    enclosure_group: ENCL-group
+    ethernet_networks:
+      - Dev-103
+
+servers:
+  - name: My_DB_1
+    profile: DB_servers
+  - name: My_DB_2
+    profile: DB_servers
+  - name: My_APP_1
+    profile: APP_servers
+  - name: My_APP_2
+    profile: APP_servers

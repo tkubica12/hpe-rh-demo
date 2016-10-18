@@ -1,0 +1,122 @@
+---
+  - name: Configure blade networking
+    hosts: localhost
+    gather_facts: no
+    connection: local
+    vars:
+      oneview_config_file: "oneview-config.json"
+      state: present
+    vars_files:
+      - config.yaml
+
+    tasks:
+      - name: OneView - ensure that Networks exist
+        oneview_ethernet_network:
+          config: "{{ oneview_config_file }}"
+          state: "{{ state }}"
+          data:
+            name: "{{ item.name }}"
+            vlanId: "{{ item.id }}"
+            smartLink: true
+            privateNetwork: false
+            purpose: General
+        with_items: "{{ vlans }}"
+        register: networks
+
+      - name: OneView - store network URIs in list
+        set_fact:
+          network_uris: "{{ networks.results | map(attribute='ansible_facts.ethernet_network.uri') | list }}"
+
+      - name: OneView - create map with facts about interconnects
+        oneview_interconnect_facts:
+          config: "{{ oneview_config_file }}"
+          name: "{{ item.module }}"
+        with_items: "{{ interconnect_modules }}"
+        register: interconnects_map
+
+      - name: OneView - build port configurations
+        set_fact:
+          port_config: '{
+            "desiredSpeed": "Auto",
+            "location": {
+                "locationEntries": [
+                    {
+                        "type": "Port",
+                        "value": "{{ item[1] }}"
+                    },
+                    {{ item[0].ansible_facts.interconnects[0].interconnectLocation.locationEntries[0] }},
+                    {{ item[0].ansible_facts.interconnects[0].interconnectLocation.locationEntries[1] }}
+                ]
+            },
+            "portUri": "{{ item[0].ansible_facts.interconnects[0].uri}}/ports/{{ item[0].ansible_facts.interconnects[0].uri.split("/")[3] }}"
+          }'
+        with_subelements:
+          - "{{ interconnects_map.results }}"
+          - "item.ports"
+        register: port_map
+
+      - name: OneView - map port configurations to JSON array
+        set_fact:
+          port_configs: "{{ port_map.results | map(attribute='ansible_facts.port_config') | list }}"
+
+      - name: OneView - get Logical Interconnect URI
+        set_fact:
+          l_interconnect: "{{ interconnects_map.results[0].ansible_facts.interconnects[0].logicalInterconnectUri }}"
+
+      - name: OneView - ensure that the Uplink Set with our Networks is present
+        oneview_uplink_set:
+          config: "{{ oneview_config_file }}"
+          state: "{{ state }}"
+          data:
+            name: 'My Uplink Set'
+            status: "OK"
+            logicalInterconnectUri: "{{ l_interconnect }}"
+            networkUris: "{{ network_uris }}"
+            fcNetworkUris: []
+            fcoeNetworkUris: []
+            portConfigInfos: "{{ port_configs }}"
+            connectionMode: "Auto"
+            networkType: "Ethernet"
+            manualLoginRedistributionState: "NotSupported"
+
+  - name: Configure top-of-rack switch
+    hosts: switches
+    gather_facts: no
+    connection: local
+    vars:
+      oneview_config_file: "oneview-config.json"
+      state: present
+    vars_files:
+      - config.yaml
+
+    tasks:
+      - name: ToR - ensure that VLANs exist
+        comware_vlan:
+          state: "{{ state }}"
+          vlanid: "{{ item.id }}"
+          name: "{{ item.name }}"
+          username: "{{ switch_username }}"
+          password: "{{ switch_password }}"
+          hostname: "{{ inventory_hostname }}"
+        with_items: "{{ vlans }}"
+
+      - name: ToR - create permited VLANs string
+        set_fact:
+          permitted_vlans: "{{ vlans | map(attribute='id') | join(',') }}"
+        tags:
+          - debug
+
+      - name: ToR - ensure that VLANs are configured on ports
+        comware_switchport:
+          state: "{{ state }}"
+          name: "{{ item[1] }}"
+          link_type: trunk
+          permitted_vlans: permitted_vlans
+          username: "{{ switch_username }}"
+          password: "{{ switch_password }}"
+          hostname: "{{ inventory_hostname }}"
+        with_subelements:
+          - "{{ interconnect_modules }}"
+          - switchports
+        tags:
+          - debug

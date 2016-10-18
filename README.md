@@ -1,1 +1,1 @@
-# hpe-rh-demo
+# HPE OneView + Ansible demo

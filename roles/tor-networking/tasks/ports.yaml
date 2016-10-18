@@ -1,0 +1,38 @@
+- name: Ensure link aggregation is configured
+  comware_portchannel:
+    state: "{{ state }}"
+    group: "{{ item.switch_link_aggregation_group }}"
+    members: "{{ item.switchports }}"
+    mode: dynamic
+    type: bridged
+    username: "{{ switch_username }}"
+    password: "{{ switch_password }}"
+    hostname: "{{ inventory_hostname }}"
+  with_items: "{{ item.logical_interconnects }}"
+  when: item.switch_link_aggregation_group is defined
+
+- name: Ensure that VLANs are configured on standalone ports
+  comware_switchport:
+    state: "{{ state }}"
+    name: "{{ item[1] }}"
+    link_type: trunk
+    permitted_vlans: "{{ permitted_vlans }}"
+    username: "{{ switch_username }}"
+    password: "{{ switch_password }}"
+    hostname: "{{ inventory_hostname }}"
+  with_subelements:
+    - "{{ item.logical_interconnects }}"
+    - switchports
+  when: item[0].switch_link_aggregation_group is not defined
+
+- name: Ensure that VLANs are configured on link aggregattion interfaces
+  comware_switchport:
+    state: "{{ state }}"
+    name: "Bridge-Aggregation {{ item.switch_link_aggregation_group }}"
+    link_type: trunk
+    permitted_vlans: "{{ permitted_vlans }}"
+    username: "{{ switch_username }}"
+    password: "{{ switch_password }}"
+    hostname: "{{ inventory_hostname }}"
+  with_items: "{{ item.logical_interconnects }}"
+  when: item.switch_link_aggregation_group is defined
