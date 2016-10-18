@@ -5,6 +5,8 @@ vlans:
     name: Prod-102
   - id: 103
     name: Dev-103
+  - id: 201
+    name: QA-sit
 
 logical_interconnect_group: FlexFabric
 connectivity_enclosures:
